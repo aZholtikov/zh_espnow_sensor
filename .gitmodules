@@ -1,0 +1,15 @@
+[submodule "components/zh_config"]
+	path = components/zh_config
+	url = http://git.zh.com.ru/alexey.zholtikov/zh_config
+[submodule "components/zh_dht"]
+	path = components/zh_dht
+	url = http://git.zh.com.ru/alexey.zholtikov/zh_dht
+[submodule "components/zh_onewire"]
+	path = components/zh_onewire
+	url = http://git.zh.com.ru/alexey.zholtikov/zh_onewire
+[submodule "components/zh_ds18b20"]
+	path = components/zh_ds18b20
+	url = http://git.zh.com.ru/alexey.zholtikov/zh_ds18b20
+[submodule "components/zh_espnow"]
+	path = components/zh_espnow
+	url = http://git.zh.com.ru/alexey.zholtikov/zh_espnow

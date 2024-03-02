@@ -1,0 +1,49 @@
+menu "ZH ESP-NOW Sensor Configuration"
+	
+	config GPIO_RANGE_MAX
+		int
+		default 33 if IDF_TARGET_ESP32
+		default 46 if IDF_TARGET_ESP32S2
+		default 48 if IDF_TARGET_ESP32S3
+		default 18 if IDF_TARGET_ESP32C2
+		default 19 if IDF_TARGET_ESP32C3
+		default 30 if IDF_TARGET_ESP32C6
+
+	choice SENSOR_TYPE
+		prompt "Sensor type"
+		default SENSOR_TYPE_N
+		config SENSOR_TYPE_N
+			bool "N"
+		config SENSOR_TYPE_DS18B20
+			bool "DS18B20"
+		config SENSOR_TYPE_DHT
+			bool "DHT11/22"
+	endchoice
+
+	config DS18B20_PIN
+		depends on SENSOR_TYPE_DS18B20
+		int "DS18B20 sensor GPIO number"
+		range 0 GPIO_RANGE_MAX
+		default 5
+		help
+			DS18B20 sensor GPIO.
+	
+	config DHT_PIN
+		depends on SENSOR_TYPE_DHT
+		int "DHT sensor GPIO number"
+		range 0 GPIO_RANGE_MAX
+		default 5
+		help
+			DHT sensor GPIO.
+
+	choice DHT_TYPE
+		depends on SENSOR_TYPE_DHT
+		prompt "DHT type"
+		default DHT_TYPE_22
+		config DHT_TYPE_11
+			bool "DHT11"
+		config DHT_TYPE_22
+			bool "DHT22"
+	endchoice
+
+endmenu 

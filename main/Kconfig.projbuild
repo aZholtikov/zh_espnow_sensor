@@ -9,6 +9,17 @@ menu "ZH ESP-NOW Sensor Configuration"
 		default 19 if IDF_TARGET_ESP32C3
 		default 30 if IDF_TARGET_ESP32C6
 
+	choice NETWORK_TYPE
+		prompt "Network type"
+		help
+			Network type.
+		default NETWORK_TYPE_DIRECT
+		config NETWORK_TYPE_DIRECT
+			bool "DIRECT"
+		config NETWORK_TYPE_MESH
+			bool "MESH"
+	endchoice
+	
 	choice SENSOR_TYPE
 		prompt "Sensor type"
 		default SENSOR_TYPE_N

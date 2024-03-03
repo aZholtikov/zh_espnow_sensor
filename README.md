@@ -23,7 +23,7 @@ There are two branches - for ESP8266 family and for ESP32 family. Please use the
 2. ESP-NOW mesh network based on the [zh_network](http://git.zh.com.ru/alexey.zholtikov/zh_network).
 3. For initial settings use "menuconfig -> ZH ESP-NOW Sensor Configuration". After first boot all settings will be stored in NVS memory for prevente change during OTA firmware update.
 4. To restart the sensor, send the "restart" command to the root topic of the sensor (example - "homeassistant/espnow_sensor/24-62-AB-F9-1F-A8").
-5. To update the sensor firmware, send the "update" command to the root topic of the sensor (example - "homeassistant/espnow_sensor/70-03-9F-44-BE-F7"). The update path should be like as "https://your_server/zh_espnow_sensor_esp32.bin". The time and success of the update depends on the load on WiFi channel 1. Average update time is up to five minutes. The online status of the update is displayed in the root led topic.
+5. To update the sensor firmware, send the "update" command to the root topic of the sensor (example - "homeassistant/espnow_sensor/70-03-9F-44-BE-F7"). The update path should be like as "https://your_server/zh_espnow_sensor_esp32.bin". The time and success of the update depends on the load on WiFi channel 1. Average update time is up to five minutes. The online status of the update is displayed in the root sensor topic.
 6. Only one sensor can be used at a time.
 
 ## Build and flash

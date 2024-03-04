@@ -6,17 +6,40 @@
 #include "driver/gpio.h"
 #include "esp_timer.h"
 #include "esp_ota_ops.h"
-#include "zh_espnow.h"
-#include "zh_network.h"
 #include "zh_ds18b20.h"
 #include "zh_dht.h"
 #include "zh_config.h"
 
 #if CONFIG_NETWORK_TYPE_DIRECT
+#include "zh_espnow.h"
 #define zh_send_message(a, b, c) zh_espnow_send(a, b, c)
-#endif
-#if CONFIG_NETWORK_TYPE_MESH
+#elif CONFIG_NETWORK_TYPE_MESH
+#include "zh_network.h"
 #define zh_send_message(a, b, c) zh_network_send(a, b, c)
+#endif
+
+#if CONFIG_IDF_TARGET_ESP8266
+#define ZH_CHIP_TYPE HACHT_ESP8266
+#elif CONFIG_IDF_TARGET_ESP32
+#define ZH_CHIP_TYPE HACHT_ESP32
+#elif CONFIG_IDF_TARGET_ESP32S2
+#define ZH_CHIP_TYPE HACHT_ESP32S2
+#elif CONFIG_IDF_TARGET_ESP32S3
+#define ZH_CHIP_TYPE HACHT_ESP32S3
+#elif CONFIG_IDF_TARGET_ESP32C2
+#define ZH_CHIP_TYPE HACHT_ESP32C2
+#elif CONFIG_IDF_TARGET_ESP32C3
+#define ZH_CHIP_TYPE HACHT_ESP32C3
+#elif CONFIG_IDF_TARGET_ESP32C6
+#define ZH_CHIP_TYPE HACHT_ESP32C6
+#endif
+
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
+#define ZH_CPU_FREQUENCY CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ;
+#define get_app_description() esp_app_get_description()
+#elif CONFIG_IDF_TARGET_ESP8266
+#define ZH_CPU_FREQUENCY CONFIG_ESP8266_DEFAULT_CPU_FREQ_MHZ;
+#define get_app_description() esp_ota_get_app_description()
 #endif
 
 #define ZH_MESSAGE_TASK_PRIORITY 2
@@ -54,8 +77,7 @@ static void s_zh_send_dht_status_message_task(void *pvParameter);
 
 #if CONFIG_NETWORK_TYPE_DIRECT
 static void s_zh_espnow_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
-#endif
-#if CONFIG_NETWORK_TYPE_MESH
+#elif CONFIG_NETWORK_TYPE_MESH
 static void s_zh_network_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 #endif
 static void s_zh_set_gateway_offline_status(void);
@@ -64,19 +86,19 @@ void app_main(void)
 {
 #if CONFIG_SENSOR_TYPE_DS18B20
     s_ds18b20_pin = CONFIG_DS18B20_PIN;
-#endif
-#if CONFIG_SENSOR_TYPE_DHT
+#elif CONFIG_SENSOR_TYPE_DHT
     s_dht_pin = CONFIG_DHT_PIN;
 #if CONFIG_DHT_TYPE_11
     s_dht_sensor_type = ZH_DHT11;
-#endif
-#if CONFIG_DHT_TYPE_22
+#elif CONFIG_DHT_TYPE_22
     s_dht_sensor_type = ZH_DHT22;
 #endif
 #endif
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
     const esp_partition_t *running = esp_ota_get_running_partition();
     esp_ota_img_states_t ota_state = {0};
     esp_ota_get_state_partition(running, &ota_state);
+#endif
     nvs_flash_init();
     esp_netif_init();
     esp_event_loop_create_default();
@@ -90,18 +112,27 @@ void app_main(void)
 #if CONFIG_NETWORK_TYPE_DIRECT
     zh_espnow_init_config_t zh_espnow_init_config = ZH_ESPNOW_INIT_CONFIG_DEFAULT();
     zh_espnow_init(&zh_espnow_init_config);
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
     esp_event_handler_instance_register(ZH_ESPNOW, ESP_EVENT_ANY_ID, &s_zh_espnow_event_handler, NULL, NULL);
+#elif CONFIG_IDF_TARGET_ESP8266
+    esp_event_handler_register(ZH_ESPNOW, ESP_EVENT_ANY_ID, &s_zh_espnow_event_handler, NULL);
 #endif
-#if CONFIG_NETWORK_TYPE_MESH
+#elif CONFIG_NETWORK_TYPE_MESH
     zh_network_init_config_t zh_network_init_config = ZH_NETWORK_INIT_CONFIG_DEFAULT();
     zh_network_init(&zh_network_init_config);
-    esp_event_handler_instance_register(ZH_NETWORK, ESP_EVENT_ANY_ID, &s_zh_network_event_handler, NULL, NULL);
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
+    esp_event_handler_instance_register(ZH_ESPNOW, ESP_EVENT_ANY_ID, &s_zh_espnow_event_handler, NULL, NULL);
+#elif CONFIG_IDF_TARGET_ESP8266
+    esp_event_handler_register(ZH_ESPNOW, ESP_EVENT_ANY_ID, &s_zh_espnow_event_handler, NULL);
 #endif
+#endif
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
     if (ota_state == ESP_OTA_IMG_PENDING_VERIFY)
     {
         vTaskDelay(60000 / portTICK_PERIOD_MS);
         esp_ota_mark_app_valid_cancel_rollback();
     }
+#endif
 }
 
 static void s_zh_load_config(void)
@@ -146,12 +177,12 @@ static void s_zh_sensor_init(void)
 
 static void s_zh_send_ds18b20_attributes_message_task(void *pvParameter)
 {
-    const esp_app_desc_t *app_info = esp_app_get_description();
+    const esp_app_desc_t *app_info = get_app_description();
     zh_attributes_message_t attributes_message = {0};
-    attributes_message.chip_type = HACHT_ESP32;
+    attributes_message.chip_type = ZH_CHIP_TYPE;
     attributes_message.sensor_type = HAST_DS18B20;
     strcpy(attributes_message.flash_size, CONFIG_ESPTOOLPY_FLASHSIZE);
-    attributes_message.cpu_frequency = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
+    attributes_message.cpu_frequency = ZH_CPU_FREQUENCY;
     attributes_message.reset_reason = (uint8_t)esp_reset_reason();
     strcpy(attributes_message.app_name, app_info->project_name);
     strcpy(attributes_message.app_version, app_info->version);
@@ -230,12 +261,12 @@ static void s_zh_send_ds18b20_status_message_task(void *pvParameter)
 
 static void s_zh_send_dht_attributes_message_task(void *pvParameter)
 {
-    const esp_app_desc_t *app_info = esp_app_get_description();
+    const esp_app_desc_t *app_info = get_app_description();
     zh_attributes_message_t attributes_message = {0};
-    attributes_message.chip_type = HACHT_ESP32;
+    attributes_message.chip_type = ZH_CHIP_TYPE;
     attributes_message.sensor_type = (s_dht_sensor_type == ZH_DHT11) ? HAST_DHT11 : HAST_DHT22;
     strcpy(attributes_message.flash_size, CONFIG_ESPTOOLPY_FLASHSIZE);
-    attributes_message.cpu_frequency = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
+    attributes_message.cpu_frequency = ZH_CPU_FREQUENCY;
     attributes_message.reset_reason = (uint8_t)esp_reset_reason();
     strcpy(attributes_message.app_name, app_info->project_name);
     strcpy(attributes_message.app_version, app_info->version);
@@ -327,30 +358,28 @@ static void s_zh_send_dht_status_message_task(void *pvParameter)
 
 #if CONFIG_NETWORK_TYPE_DIRECT
 static void s_zh_espnow_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
-#endif
-#if CONFIG_NETWORK_TYPE_MESH
-    static void s_zh_network_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
+#elif CONFIG_NETWORK_TYPE_MESH
+static void s_zh_network_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 #endif
 {
-    const esp_app_desc_t *app_info = esp_app_get_description();
+    const esp_app_desc_t *app_info = get_app_description();
     zh_espnow_data_t data_in = {0};
     zh_espnow_data_t data_out = {0};
     zh_espnow_ota_message_t espnow_ota_message = {0};
     data_out.device_type = ZHDT_SENSOR;
-    espnow_ota_message.chip_type = HACHT_ESP32;
+    espnow_ota_message.chip_type = ZH_CHIP_TYPE;
     data_out.payload_data = (zh_payload_data_t)espnow_ota_message;
     switch (event_id)
     {
 #if CONFIG_NETWORK_TYPE_DIRECT
-    case ZH_ESPNOW_ON_RECV_EVENT:
+    case ZH_ESPNOW_ON_RECV_EVENT:;
         zh_espnow_event_on_recv_t *recv_data = event_data;
         if (recv_data->data_len != sizeof(zh_espnow_data_t))
         {
             goto ZH_ESPNOW_EVENT_HANDLER_EXIT;
         }
-#endif
-#if CONFIG_NETWORK_TYPE_MESH
-    case ZH_NETWORK_ON_RECV_EVENT:
+#elif CONFIG_NETWORK_TYPE_MESH
+    case ZH_NETWORK_ON_RECV_EVENT:;
         zh_network_event_on_recv_t *recv_data = event_data;
         if (recv_data->data_len != sizeof(zh_espnow_data_t))
         {
@@ -394,8 +423,15 @@ static void s_zh_espnow_event_handler(void *arg, esp_event_base_t event_base, in
                 break;
             case ZHPT_UPDATE:
                 s_update_partition = esp_ota_get_next_update_partition(NULL);
-                strcpy(espnow_ota_message.app_name, app_info->project_name);
                 strcpy(espnow_ota_message.app_version, app_info->version);
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
+                strcpy(espnow_ota_message.app_name, app_info->project_name);
+#elif CONFIG_IDF_TARGET_ESP8266
+                char *app_name = (char *)calloc(1, strlen(app_info->project_name) + 5 + 1);
+                sprintf(app_name, "%s.app%d", app_info->project_name, s_update_partition->subtype - ESP_PARTITION_SUBTYPE_APP_OTA_0 + 1);
+                strcpy(espnow_ota_message.app_name, app_name);
+                free(app_name);
+#endif
                 data_out.payload_type = ZHPT_UPDATE;
                 data_out.payload_data = (zh_payload_data_t)espnow_ota_message;
                 zh_send_message(s_gateway_mac, (uint8_t *)&data_out, sizeof(zh_espnow_data_t));
@@ -445,19 +481,18 @@ static void s_zh_espnow_event_handler(void *arg, esp_event_base_t event_base, in
     ZH_ESPNOW_EVENT_HANDLER_EXIT:
         free(recv_data->data);
         break;
-    case ZH_ESPNOW_ON_SEND_EVENT:
+    case ZH_ESPNOW_ON_SEND_EVENT:;
         zh_espnow_event_on_send_t *send_data = event_data;
         if (send_data->status == ZH_ESPNOW_SEND_FAIL && s_gateway_is_available == true)
         {
             s_zh_set_gateway_offline_status();
         }
         break;
-#endif
-#if CONFIG_NETWORK_TYPE_MESH
+#elif CONFIG_NETWORK_TYPE_MESH
     ZH_NETWORK_EVENT_HANDLER_EXIT:
         free(recv_data->data);
         break;
-    case ZH_NETWORK_ON_SEND_EVENT:
+    case ZH_NETWORK_ON_SEND_EVENT:;
         zh_network_event_on_send_t *send_data = event_data;
         if (send_data->status == ZH_NETWORK_SEND_FAIL && s_gateway_is_available == true)
         {

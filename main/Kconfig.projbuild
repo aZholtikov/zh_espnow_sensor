@@ -2,6 +2,7 @@ menu "ZH ESP-NOW Sensor Configuration"
 	
 	config GPIO_RANGE_MAX
 		int
+		default 16 if IDF_TARGET_ESP8266
 		default 33 if IDF_TARGET_ESP32
 		default 46 if IDF_TARGET_ESP32S2
 		default 48 if IDF_TARGET_ESP32S3

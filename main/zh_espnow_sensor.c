@@ -6,15 +6,15 @@
 #include "driver/gpio.h"
 #include "esp_timer.h"
 #include "esp_ota_ops.h"
+#include "zh_espnow.h"
+#include "zh_network.h"
 #include "zh_ds18b20.h"
 #include "zh_dht.h"
 #include "zh_config.h"
 
 #if CONFIG_NETWORK_TYPE_DIRECT
-#include "zh_espnow.h"
 #define zh_send_message(a, b, c) zh_espnow_send(a, b, c)
 #elif CONFIG_NETWORK_TYPE_MESH
-#include "zh_network.h"
 #define zh_send_message(a, b, c) zh_network_send(a, b, c)
 #endif
 

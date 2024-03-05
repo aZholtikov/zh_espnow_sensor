@@ -121,9 +121,9 @@ void app_main(void)
     zh_network_init_config_t zh_network_init_config = ZH_NETWORK_INIT_CONFIG_DEFAULT();
     zh_network_init(&zh_network_init_config);
 #if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
-    esp_event_handler_instance_register(ZH_ESPNOW, ESP_EVENT_ANY_ID, &s_zh_espnow_event_handler, NULL, NULL);
+    esp_event_handler_instance_register(ZH_NETWORK, ESP_EVENT_ANY_ID, &s_zh_network_event_handler, NULL, NULL);
 #elif CONFIG_IDF_TARGET_ESP8266
-    esp_event_handler_register(ZH_ESPNOW, ESP_EVENT_ANY_ID, &s_zh_espnow_event_handler, NULL);
+    esp_event_handler_register(ZH_NETWORK, ESP_EVENT_ANY_ID, &s_zh_network_event_handler, NULL);
 #endif
 #endif
 #if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6

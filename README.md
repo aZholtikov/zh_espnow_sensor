@@ -34,7 +34,10 @@ Run the following command to firmware build and flash module:
 
 ```text
 cd your_projects_folder
-bash <(curl -Ls http://git.zh.com.ru/alexey.zholtikov/zh_espnow_sensor/raw/branch/main/install.sh)
+git clone http://git.zh.com.ru/alexey.zholtikov/zh_espnow_sensor.git
+cd zh_espnow_sensor
+git submodule init
+git submodule update --remote
 cd zh_espnow_sensor
 ```
 

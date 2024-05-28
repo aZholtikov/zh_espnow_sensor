@@ -1,0 +1,89 @@
+menu "ZH ESP-NOW Sensor Configuration"
+	
+	config GPIO_RANGE_MAX
+		int
+		default 16 if IDF_TARGET_ESP8266
+		default 33 if IDF_TARGET_ESP32
+		default 46 if IDF_TARGET_ESP32S2
+		default 48 if IDF_TARGET_ESP32S3
+		default 18 if IDF_TARGET_ESP32C2
+		default 19 if IDF_TARGET_ESP32C3
+		default 30 if IDF_TARGET_ESP32C6
+
+	choice NETWORK_TYPE
+		prompt "Network type"
+		help
+			Network type.
+		default NETWORK_TYPE_DIRECT
+		config NETWORK_TYPE_DIRECT
+			bool "DIRECT"
+		config NETWORK_TYPE_MESH
+			bool "MESH"
+	endchoice
+	
+	choice SENSOR_TYPE
+		prompt "Sensor type"
+		default SENSOR_TYPE_N
+		config SENSOR_TYPE_N
+			bool "N"
+		config SENSOR_TYPE_DS18B20
+			bool "DS18B20"
+		config SENSOR_TYPE_DHT11
+			bool "DHT11"
+		config SENSOR_TYPE_DHT22
+			bool "DHT22"
+	endchoice
+
+	config BATTERY_POWERED
+		depends on SENSOR_TYPE_DS18B20 || SENSOR_TYPE_DHT11 || SENSOR_TYPE_DHT22
+		bool "Battery powered"
+		default false
+		help
+			Battery powered.
+
+	config MEASUREMENT_FREQUENCY
+		depends on SENSOR_TYPE_DS18B20 || SENSOR_TYPE_DHT11 || SENSOR_TYPE_DHT22
+		int "Measurement frequency"
+		range 1 65536
+		default 300
+		help
+			Measurement frequency.
+
+	config SENSOR_PIN_1
+		depends on SENSOR_TYPE_DS18B20 || SENSOR_TYPE_DHT11 || SENSOR_TYPE_DHT22
+		int "Sensor GPIO number"
+		range 0 GPIO_RANGE_MAX
+		default 5
+		help
+			Sensor GPIO.
+
+	config POWER_CONTROL_USING
+		depends on SENSOR_TYPE_DS18B20 || SENSOR_TYPE_DHT11 || SENSOR_TYPE_DHT22
+		bool "Enable using sensor power control"
+		default true
+		help
+			Enable using sensor power control.
+
+	config POWER_CONTROL_PIN
+		depends on POWER_CONTROL_USING
+		int "Power control GPIO number"
+		range 0 GPIO_RANGE_MAX
+		default 12
+		help
+			Power control GPIO number.
+
+	config POWER_MODE_USING
+		bool "Enable power mode selection at startup"
+		default true
+		help
+			Enable power mode selection at startup.
+
+	config POWER_MODE_PIN
+		depends on POWER_MODE_USING
+		int "Power selection GPIO number"
+		range 0 GPIO_RANGE_MAX
+		default 1
+		help
+			Power selection GPIO number.
+
+endmenu 

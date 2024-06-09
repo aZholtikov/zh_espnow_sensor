@@ -6,7 +6,7 @@ In an existing project, run the following command to install the component:
 
 ```text
 cd ../your_project/components
-git clone http://git.zh.com.ru/alexey.zholtikov/zh_config.git
+git clone https://github.com/aZholtikov/zh_config.git
 ```
 
 In the application, add the component:

@@ -7,7 +7,7 @@
 
 ## Dependencies
 
-1. [zh_onewire](http://git.zh.com.ru/alexey.zholtikov/zh_onewire.git)
+1. [zh_onewire](https://github.com/aZholtikov/zh_onewire.git)
 
 ## [Function description](http://zh-ds18b20.zh.com.ru)
 
@@ -17,8 +17,8 @@ In an existing project, run the following command to install the components:
 
 ```text
 cd ../your_project/components
-git clone http://git.zh.com.ru/alexey.zholtikov/zh_onewire.git
-git clone http://git.zh.com.ru/alexey.zholtikov/zh_ds18b20.git
+git clone https://github.com/aZholtikov/zh_onewire.git
+git clone https://github.com/aZholtikov/zh_ds18b20.git
 ```
 
 In the application, add the component:
@@ -36,8 +36,10 @@ One or more 1-Wire DS18B20 sensors on bus:
 
 void app_main(void)
 {
-    uint8_t *rom;
-    float temperature;
+    esp_log_level_set("zh_onewire", ESP_LOG_NONE);
+    esp_log_level_set("zh_ds18b20", ESP_LOG_NONE);
+    uint8_t *rom = NULL;
+    float temperature = 0.0;
     zh_onewire_init(GPIO_NUM_5);
     if (zh_onewire_reset() != ESP_OK)
     {

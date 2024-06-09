@@ -1,6 +1,7 @@
 /**
  * @file
  * The main code of the zh_ds18b20 component.
+ *
  */
 
 #include "zh_ds18b20.h"

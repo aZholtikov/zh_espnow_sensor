@@ -31,7 +31,8 @@
         .stack_size = 2048,             \
         .queue_size = 32,               \
         .wifi_interface = WIFI_IF_STA,  \
-        .wifi_channel = 1               \
+        .wifi_channel = 1,              \
+        .attempts = 3                   \
     }
 
 #ifdef __cplusplus
@@ -44,9 +45,7 @@ extern "C"
      *
      * @note Before initialize ESP-NOW interface recommend initialize zh_espnow_init_config_t structure with default values.
      *
-     * @code
-     *       zh_espnow_init_config_t config = ZH_ESPNOW_INIT_CONFIG_DEFAULT()
-     * @endcode
+     * @code zh_espnow_init_config_t config = ZH_ESPNOW_INIT_CONFIG_DEFAULT() @endcode
      */
     typedef struct
     {
@@ -55,6 +54,7 @@ extern "C"
         uint8_t queue_size;              ///< Queue size for task for the ESP-NOW messages processing. @note The size depends on the number of messages to be processed. It is not recommended to set the value less than 16.
         wifi_interface_t wifi_interface; ///< WiFi interface (STA or AP) used for ESP-NOW operation. @note The MAC address of the device depends on the selected WiFi interface.
         uint8_t wifi_channel;            ///< Wi-Fi channel uses to send/receive ESP-NOW data. @note Values from 1 to 14.
+        uint8_t attempts;                ///< Maximum number of attempts to send a message. @note It is not recommended to set a value greater than 5.
     } zh_espnow_init_config_t;
 
     /// \cond
@@ -85,7 +85,6 @@ extern "C"
      * @brief Structure for sending data to the event handler when an ESP-NOW message was sent.
      *
      * @note Should be used with ZH_ESPNOW event base and ZH_ESPNOW_ON_SEND_EVENT event.
-     *
      */
     typedef struct
     {
@@ -106,15 +105,13 @@ extern "C"
     } zh_espnow_event_on_recv_t;
 
     /**
-     * @brief      Initialize ESP-NOW interface.
+     * @brief Initialize ESP-NOW interface.
      *
-     * @note       Before initialize ESP-NOW interface recommend initialize zh_espnow_init_config_t structure with default values.
+     * @note Before initialize ESP-NOW interface recommend initialize zh_espnow_init_config_t structure with default values.
      *
-     * @code
-     *             zh_espnow_init_config_t config = ZH_ESPNOW_INIT_CONFIG_DEFAULT()
-     * @endcode
+     * @code zh_espnow_init_config_t config = ZH_ESPNOW_INIT_CONFIG_DEFAULT() @endcode
      *
-     * @param[in]  config  Pointer to ESP-NOW initialized configuration structure. Can point to a temporary variable.
+     * @param[in] config Pointer to ESP-NOW initialized configuration structure. Can point to a temporary variable.
      *
      * @return
      *              - ESP_OK if initialization was success
@@ -125,7 +122,7 @@ extern "C"
     esp_err_t zh_espnow_init(const zh_espnow_init_config_t *config);
 
     /**
-     * @brief      Deinitialize ESP-NOW interface.
+     * @brief Deinitialize ESP-NOW interface.
      *
      * @return
      *              - ESP_OK if deinitialization was success
@@ -134,11 +131,11 @@ extern "C"
     esp_err_t zh_espnow_deinit(void);
 
     /**
-     * @brief      Send ESP-NOW data.
+     * @brief Send ESP-NOW data.
      *
-     * @param[in]  target    Pointer to a buffer containing an eight-byte target MAC. Can be NULL for broadcast.
-     * @param[in]  data      Pointer to a buffer containing the data for send.
-     * @param[in]  data_len  Sending data length.
+     * @param[in] target Pointer to a buffer containing an eight-byte target MAC. Can be NULL for broadcast.
+     * @param[in] data Pointer to a buffer containing the data for send.
+     * @param[in] data_len Sending data length.
      *
      * @note The function will return an ESP_ERR_INVALID_STATE error if less than 10% of the size set at initialization remains in the message queue.
      *

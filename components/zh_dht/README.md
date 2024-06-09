@@ -13,7 +13,7 @@ In an existing project, run the following command to install the component:
 
 ```text
 cd ../your_project/components
-git clone http://git.zh.com.ru/alexey.zholtikov/zh_dht.git
+git clone https://github.com/aZholtikov/zh_dht.git
 ```
 
 In the application, add the component:
@@ -29,7 +29,7 @@ Reading the sensor:
 ```c
 #include "zh_dht.h"
 
-void app_main()
+void app_main(void)
 {
 	zh_dht_handle_t dht_handle = zh_dht_init(ZH_DHT22, GPIO_NUM_5);
 	float humidity;

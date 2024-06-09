@@ -1,6 +1,7 @@
 /**
  * @file
  * The main code of the zh_onewire component.
+ *
  */
 
 #include "zh_onewire.h"
@@ -38,6 +39,7 @@ static const char *TAG = "zh_onewire";
 static uint8_t _pin;
 static uint8_t _rom[8];
 static uint8_t _rom_fork_bit = 0xFF;
+static bool _is_initialized = false;
 
 static const uint8_t _rom_crc_table[] = {
     0x00, 0x5e, 0xbc, 0xe2, 0x61, 0x3f, 0xdd, 0x83, 0xc2, 0x9c, 0x7e, 0x20, 0xa3, 0xfd, 0x1f, 0x41,
@@ -72,6 +74,7 @@ esp_err_t zh_onewire_init(const uint8_t pin)
         ESP_LOGE(TAG, "Onewire initialization fail. Incorrect GPIO number.");
         return ESP_ERR_INVALID_ARG;
     }
+    _is_initialized = true;
     ESP_LOGI(TAG, "Onewire initialization success.");
     return ESP_OK;
 }
@@ -79,6 +82,11 @@ esp_err_t zh_onewire_init(const uint8_t pin)
 esp_err_t zh_onewire_reset(void)
 {
     ESP_LOGI(TAG, "Onewire reset begin.");
+    if (_is_initialized == false)
+    {
+        ESP_LOGE(TAG, "Onewire reset fail. Onewire not initialized.");
+        return ESP_ERR_INVALID_STATE;
+    }
     if (gpio_get_level(_pin) != 1)
     {
         ESP_LOGE(TAG, "Onewire reset fail. Bus is busy.");
@@ -129,6 +137,11 @@ void zh_onewire_send_byte(uint8_t byte)
 esp_err_t zh_onewire_skip_rom(void)
 {
     ESP_LOGI(TAG, "Onewire skip ROM begin.");
+    if (_is_initialized == false)
+    {
+        ESP_LOGE(TAG, "Onewire skip ROM fail. Onewire not initialized.");
+        return ESP_ERR_INVALID_STATE;
+    }
     if (zh_onewire_reset() != ESP_OK)
     {
         ESP_LOGE(TAG, "Onewire skip ROM fail.");
@@ -142,6 +155,11 @@ esp_err_t zh_onewire_skip_rom(void)
 esp_err_t zh_onewire_read_rom(uint8_t *buf)
 {
     ESP_LOGI(TAG, "Onewire read ROM begin.");
+    if (_is_initialized == false)
+    {
+        ESP_LOGE(TAG, "Onewire read ROM fail. Onewire not initialized.");
+        return ESP_ERR_INVALID_STATE;
+    }
     if (zh_onewire_reset() != ESP_OK)
     {
         ESP_LOGE(TAG, "Onewire read ROM fail.");
@@ -167,6 +185,11 @@ esp_err_t zh_onewire_read_rom(uint8_t *buf)
 esp_err_t zh_onewire_match_rom(const uint8_t *data)
 {
     ESP_LOGI(TAG, "Onewire match ROM begin.");
+    if (_is_initialized == false)
+    {
+        ESP_LOGE(TAG, "Onewire match ROM fail. Onewire not initialized.");
+        return ESP_ERR_INVALID_STATE;
+    }
     if (zh_onewire_reset() != ESP_OK)
     {
         ESP_LOGE(TAG, "Onewire match ROM fail.");
@@ -183,6 +206,10 @@ esp_err_t zh_onewire_match_rom(const uint8_t *data)
 
 esp_err_t zh_onewire_search_rom_init(void)
 {
+    if (_is_initialized == false)
+    {
+        return ESP_ERR_INVALID_STATE;
+    }
     for (uint8_t i = 0; i < 8; ++i)
     {
         _rom[i] = 0;
@@ -194,6 +221,11 @@ esp_err_t zh_onewire_search_rom_init(void)
 uint8_t *zh_onewire_search_rom_next(void)
 {
     ESP_LOGI(TAG, "Onewire search ROM begin.");
+    if (_is_initialized == false)
+    {
+        ESP_LOGE(TAG, "Onewire search ROM fail. Onewire not initialized.");
+        return NULL;
+    }
     if (_rom_fork_bit == 0xFF)
     {
         ESP_LOGE(TAG, "Onewire search ROM not initialized.");

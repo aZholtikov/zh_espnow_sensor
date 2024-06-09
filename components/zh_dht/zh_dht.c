@@ -1,6 +1,7 @@
 /**
  * @file
  * The main code of the zh_dht component.
+ *
  */
 
 #include "zh_dht.h"
@@ -27,10 +28,10 @@ static esp_err_t _read_bit(const zh_dht_handle_t *dht_handle, bool *bit);
 zh_dht_handle_t zh_dht_init(const zh_dht_sensor_type_t sensor_type, const uint8_t sensor_pin)
 {
 	ESP_LOGI(TAG, "DHT initialization begin.");
-	zh_dht_handle_t zh_dht_handle;
-	zh_dht_handle.sensor_type = sensor_type;
-	zh_dht_handle.sensor_pin = sensor_pin;
-	gpio_config_t config;
+	zh_dht_handle_t zh_dht_handle = {
+		.sensor_type = sensor_type,
+		.sensor_pin = sensor_pin};
+	gpio_config_t config = {0};
 	config.intr_type = GPIO_INTR_DISABLE;
 	config.mode = GPIO_MODE_INPUT;
 	config.pin_bit_mask = (1ULL << sensor_pin);

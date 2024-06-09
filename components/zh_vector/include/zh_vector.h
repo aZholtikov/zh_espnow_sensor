@@ -32,15 +32,15 @@ extern "C"
     } zh_vector_t;
 
     /**
-     * @brief      Initialize vector.
+     * @brief Initialize vector.
      *
-     * @param[in]  vector  Pointer to main structure of vector data.
-     * @param[in]  unit    Size of vector item.
-     * @param[in]  spiram  SPI RAM using (true - vector will be placed in SPI RAM, false - vector will be placed in RAM).
+     * @param[in] vector Pointer to main structure of vector data.
+     * @param[in] unit Size of vector item.
+     * @param[in] spiram SPI RAM using (true - vector will be placed in SPI RAM, false - vector will be placed in RAM).
      *
      * @attention For using SPI RAM select “Make RAM allocatable using heap_caps_malloc(…, MALLOC_CAP_SPIRAM)” from CONFIG_SPIRAM_USE. For ESP32 with external, SPI-connected RAM only.
      *
-     * @note      If SPI RAM is not supported or not initialised via menuconfig vector will be placed in RAM regardless of the set spiram value.
+     * @note If SPI RAM is not supported or not initialised via menuconfig vector will be placed in RAM regardless of the set spiram value.
      *
      * @return
      *              - ESP_OK if initialization was success
@@ -50,9 +50,9 @@ extern "C"
     esp_err_t zh_vector_init(zh_vector_t *vector, uint16_t unit, bool spiram);
 
     /**
-     * @brief      Deinitialize vector. Free all allocated memory.
+     * @brief Deinitialize vector. Free all allocated memory.
      *
-     * @param[in]  vector  Pointer to main structure of vector data.
+     * @param[in] vector Pointer to main structure of vector data.
      *
      * @return
      *              - ESP_OK if deinitialization was success
@@ -62,9 +62,9 @@ extern "C"
     esp_err_t zh_vector_free(zh_vector_t *vector);
 
     /**
-     * @brief      Get current vector size.
+     * @brief Get current vector size.
      *
-     * @param[in]  vector  Pointer to main structure of vector data.
+     * @param[in] vector Pointer to main structure of vector data.
      *
      * @return
      *              - Vector size
@@ -73,10 +73,10 @@ extern "C"
     esp_err_t zh_vector_get_size(zh_vector_t *vector);
 
     /**
-     * @brief      Add item at end of vector.
+     * @brief Add item at end of vector.
      *
-     * @param[in]  vector  Pointer to main structure of vector data.
-     * @param[in]  item    Pointer to item for add.
+     * @param[in] vector Pointer to main structure of vector data.
+     * @param[in] item Pointer to item for add.
      *
      * @return
      *              - ESP_OK if add was success
@@ -87,11 +87,11 @@ extern "C"
     esp_err_t zh_vector_push_back(zh_vector_t *vector, void *item);
 
     /**
-     * @brief      Change item by index.
+     * @brief Change item by index.
      *
-     * @param[in]  vector  Pointer to main structure of vector data.
-     * @param[in]  index   Index of item for change.
-     * @param[in]  item    Pointer to new data of item.
+     * @param[in] vector Pointer to main structure of vector data.
+     * @param[in] index Index of item for change.
+     * @param[in] item Pointer to new data of item.
      *
      * @return
      *              - ESP_OK if change was success
@@ -102,10 +102,10 @@ extern "C"
     esp_err_t zh_vector_change_item(zh_vector_t *vector, uint16_t index, void *item);
 
     /**
-     * @brief      Get item by index.
+     * @brief Get item by index.
      *
-     * @param[in]  vector  Pointer to main structure of vector data.
-     * @param[in]  index   Index of item for get.
+     * @param[in] vector Pointer to main structure of vector data.
+     * @param[in] index Index of item for get.
      *
      * @return
      *              - Pointer to item
@@ -114,10 +114,10 @@ extern "C"
     void *zh_vector_get_item(zh_vector_t *vector, uint16_t index);
 
     /**
-     * @brief      Delete item by index and shifts all elements in vector.
+     * @brief Delete item by index and shifts all elements in vector.
      *
-     * @param[in]  vector  Pointer to main structure of vector data.
-     * @param[in]  index   Index of item for delete.
+     * @param[in] vector Pointer to main structure of vector data.
+     * @param[in] index Index of item for delete.
      *
      * @return
      *              - ESP_OK if delete was success

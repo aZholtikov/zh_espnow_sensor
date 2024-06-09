@@ -1,6 +1,7 @@
 /**
  * @file
  * The main code of the zh_vector component.
+ *
  */
 
 #include "zh_vector.h"

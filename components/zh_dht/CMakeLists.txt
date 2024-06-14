@@ -1,1 +1,0 @@
-idf_component_register(SRCS "zh_dht.c" INCLUDE_DIRS "include" REQUIRES driver)

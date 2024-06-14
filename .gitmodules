@@ -1,0 +1,21 @@
+[submodule "components/zh_config"]
+	path = components/zh_config
+	url = https://github.com/aZholtikov/zh_config
+[submodule "components/zh_dht"]
+	path = components/zh_dht
+	url = https://github.com/aZholtikov/zh_dht
+[submodule "components/zh_ds18b20"]
+	path = components/zh_ds18b20
+	url = https://github.com/aZholtikov/zh_ds18b20
+[submodule "components/zh_espnow"]
+	path = components/zh_espnow
+	url = https://github.com/aZholtikov/zh_espnow
+[submodule "components/zh_network"]
+	path = components/zh_network
+	url = https://github.com/aZholtikov/zh_network
+[submodule "components/zh_onewire"]
+	path = components/zh_onewire
+	url = https://github.com/aZholtikov/zh_onewire
+[submodule "components/zh_vector"]
+	path = components/zh_vector
+	url = https://github.com/aZholtikov/zh_vector

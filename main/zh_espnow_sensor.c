@@ -74,10 +74,10 @@ void zh_load_config(sensor_config_t *sensor_config)
         nvs_close(nvs_handle);
 #ifdef CONFIG_SENSOR_TYPE_DS18B20
         sensor_config->hardware_config.sensor_type = HAST_DS18B20;
-#elif CONFIG_SENSOR_TYPE_DHT11
-        sensor_config->hardware_config.sensor_type = HAST_DHT11;
-#elif CONFIG_SENSOR_TYPE_DHT22
-        sensor_config->hardware_config.sensor_type = HAST_DHT22;
+#elif CONFIG_SENSOR_TYPE_DHT
+        sensor_config->hardware_config.sensor_type = HAST_DHT;
+#elif CONFIG_SENSOR_TYPE_BH1750
+        sensor_config->hardware_config.sensor_type = HAST_BH1750;
 #else
         sensor_config->hardware_config.sensor_type = HAST_NONE;
 #endif
@@ -184,6 +184,31 @@ void zh_sensor_init(sensor_config_t *sensor_config)
             gpio_set_level(sensor_config->hardware_config.power_pin, 0);
         }
     }
+    if (sensor_config->hardware_config.sensor_type != HAST_NONE && sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED && sensor_config->hardware_config.sensor_pin_2 != ZH_NOT_USED)
+    {
+#ifdef CONFIG_IDF_TARGET_ESP8266
+        i2c_config_t i2c_config = {
+            .mode = I2C_MODE_MASTER,
+            .sda_io_num = sensor_config->hardware_config.sensor_pin_1,
+            .sda_pullup_en = GPIO_PULLUP_ENABLE,
+            .scl_io_num = sensor_config->hardware_config.sensor_pin_2,
+            .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        };
+        i2c_driver_install(I2C_PORT, i2c_config.mode);
+        i2c_param_config(I2C_PORT, &i2c_config);
+        dht_init_config.i2c_port = I2C_PORT;
+#else
+        i2c_master_bus_config_t i2c_bus_config = {
+            .clk_source = I2C_CLK_SRC_DEFAULT,
+            .i2c_port = I2C_PORT,
+            .scl_io_num = sensor_config->hardware_config.sensor_pin_2,
+            .sda_io_num = sensor_config->hardware_config.sensor_pin_1,
+            .glitch_ignore_cnt = 7,
+            .flags.enable_internal_pullup = true,
+        };
+        i2c_new_master_bus(&i2c_bus_config, &sensor_config->i2c_bus_handle);
+#endif
+    }
     if (sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED)
     {
         switch (sensor_config->hardware_config.sensor_type)
@@ -191,18 +216,52 @@ void zh_sensor_init(sensor_config_t *sensor_config)
         case HAST_DS18B20:
             if (zh_onewire_init(sensor_config->hardware_config.sensor_pin_1) != ESP_OK)
             {
-                sensor_config->hardware_config.sensor_pin_1 = ZH_NOT_USED;
+                goto ZH_SENSOR_ERROR;
             }
             break;
-        case HAST_DHT11:
-        case HAST_DHT22:;
-            zh_dht_sensor_type_t sensor_type = (sensor_config->hardware_config.sensor_type == HAST_DHT11) ? ZH_DHT11 : ZH_DHT22;
-            sensor_config->dht_handle = zh_dht_init(sensor_type, sensor_config->hardware_config.sensor_pin_1);
-            sensor_config->hardware_config.sensor_pin_1 = sensor_config->dht_handle.sensor_pin;
+        case HAST_DHT:;
+            zh_dht_init_config_t dht_init_config = ZH_DHT_INIT_CONFIG_DEFAULT();
+            if (sensor_config->hardware_config.sensor_pin_2 == ZH_NOT_USED)
+            {
+                dht_init_config.sensor_pin = sensor_config->hardware_config.sensor_pin_1;
+            }
+            else
+            {
+#ifdef CONFIG_IDF_TARGET_ESP8266
+                dht_init_config.i2c_port = I2C_PORT;
+#else
+                dht_init_config.i2c_handle = sensor_config->i2c_bus_handle;
+#endif
+            }
+            if (zh_dht_init(&dht_init_config) != ESP_OK)
+            {
+                goto ZH_SENSOR_ERROR;
+            }
+            break;
+        case HAST_BH1750:;
+            zh_bh1750_init_config_t bh1750_init_config = ZH_BH1750_INIT_CONFIG_DEFAULT();
+            // Add adjust.
+#ifdef CONFIG_IDF_TARGET_ESP8266
+            bh1750_init_config.i2c_port = I2C_PORT;
+#else
+            bh1750_init_config.i2c_handle = sensor_config->i2c_bus_handle;
+#endif
+            if (zh_bh1750_init(&bh1750_init_config) != ESP_OK)
+            {
+                goto ZH_SENSOR_ERROR;
+            }
+            break;
+        case HAST_BMP280: // For future development.
+            break;
+        case HAST_BME280: // For future development.
+            break;
+        case HAST_BME680: // For future development.
             break;
         default:
+        ZH_SENSOR_ERROR:
             sensor_config->hardware_config.sensor_type = HAST_NONE;
             sensor_config->hardware_config.sensor_pin_1 = ZH_NOT_USED;
+            sensor_config->hardware_config.sensor_pin_2 = ZH_NOT_USED;
             break;
         }
     }
@@ -290,30 +349,48 @@ uint8_t zh_send_sensor_config_message(const sensor_config_t *sensor_config)
     data.payload_data.config_message.sensor_config_message.qos = 2;
     data.payload_data.config_message.sensor_config_message.retain = true;
     char *unit_of_measurement = NULL;
+    data.payload_data.config_message.sensor_config_message.unique_id = 1;
+    data.payload_data.config_message.sensor_config_message.sensor_device_class = HASDC_VOLTAGE;
+    unit_of_measurement = "V";
+    strcpy(data.payload_data.config_message.sensor_config_message.unit_of_measurement, unit_of_measurement);
+    zh_send_message(sensor_config->gateway_mac, (uint8_t *)&data, sizeof(zh_espnow_data_t));
     switch (sensor_config->hardware_config.sensor_type)
     {
     case HAST_DS18B20:
-        data.payload_data.config_message.sensor_config_message.unique_id = 1;
+        data.payload_data.config_message.sensor_config_message.unique_id = 2;
         data.payload_data.config_message.sensor_config_message.sensor_device_class = HASDC_TEMPERATURE;
         unit_of_measurement = "°C";
         strcpy(data.payload_data.config_message.sensor_config_message.unit_of_measurement, unit_of_measurement);
         zh_send_message(sensor_config->gateway_mac, (uint8_t *)&data, sizeof(zh_espnow_data_t));
         ++messages_quantity;
         break;
-    case HAST_DHT11:
-    case HAST_DHT22:
-        data.payload_data.config_message.sensor_config_message.unique_id = 1;
+    case HAST_DHT:
+        data.payload_data.config_message.sensor_config_message.unique_id = 2;
         data.payload_data.config_message.sensor_config_message.sensor_device_class = HASDC_TEMPERATURE;
         unit_of_measurement = "°C";
         strcpy(data.payload_data.config_message.sensor_config_message.unit_of_measurement, unit_of_measurement);
         zh_send_message(sensor_config->gateway_mac, (uint8_t *)&data, sizeof(zh_espnow_data_t));
         ++messages_quantity;
-        data.payload_data.config_message.sensor_config_message.unique_id = 2;
+        data.payload_data.config_message.sensor_config_message.unique_id = 3;
         data.payload_data.config_message.sensor_config_message.sensor_device_class = HASDC_HUMIDITY;
         unit_of_measurement = "%";
         strcpy(data.payload_data.config_message.sensor_config_message.unit_of_measurement, unit_of_measurement);
         zh_send_message(sensor_config->gateway_mac, (uint8_t *)&data, sizeof(zh_espnow_data_t));
         ++messages_quantity;
+        break;
+    case HAST_BH1750:
+        data.payload_data.config_message.sensor_config_message.unique_id = 2;
+        data.payload_data.config_message.sensor_config_message.sensor_device_class = HASDC_ILLUMINANCE;
+        unit_of_measurement = "lx";
+        strcpy(data.payload_data.config_message.sensor_config_message.unit_of_measurement, unit_of_measurement);
+        zh_send_message(sensor_config->gateway_mac, (uint8_t *)&data, sizeof(zh_espnow_data_t));
+        ++messages_quantity;
+        break;
+    case HAST_BMP280: // For future development.
+        break;
+    case HAST_BME280: // For future development.
+        break;
+    case HAST_BME680: // For future development.
         break;
     default:
         break;
@@ -326,83 +403,64 @@ void zh_send_sensor_status_message_task(void *pvParameter)
     sensor_config_t *sensor_config = pvParameter;
     float humidity = 0.0;
     float temperature = 0.0;
+    float illuminance = 0.0;
     zh_espnow_data_t data = {0};
     data.device_type = ZHDT_SENSOR;
     data.payload_type = ZHPT_STATE;
     data.payload_data.status_message.sensor_status_message.sensor_type = sensor_config->hardware_config.sensor_type;
     for (;;)
     {
-        if (sensor_config->hardware_config.power_pin != ZH_NOT_USED && sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED)
+        if (sensor_config->hardware_config.power_pin != ZH_NOT_USED && sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED && sensor_config->hardware_config.sensor_pin_2 == ZH_NOT_USED)
         {
             gpio_set_level(sensor_config->hardware_config.power_pin, 1);
-            vTaskDelay(1000 / portTICK_PERIOD_MS); // Power stabilization period after the sensor is turned on. The value is selected experimentally. DHT11/22 requires 1 second.
+            switch (sensor_config->hardware_config.sensor_type)
+            {
+            case HAST_DS18B20:
+                vTaskDelay(DS18B20_POWER_STABILIZATION_PERIOD / portTICK_PERIOD_MS);
+                break;
+            case HAST_DHT:
+                vTaskDelay(DHT_POWER_STABILIZATION_PERIOD / portTICK_PERIOD_MS);
+                break;
+            default:
+                gpio_set_level(sensor_config->hardware_config.power_pin, 0);
+                break;
+            }
         }
         switch (sensor_config->hardware_config.sensor_type)
         {
         case HAST_DS18B20:
-        ZH_DS18B20_READ:
-            switch (zh_ds18b20_read(NULL, &temperature))
+            if (zh_ds18b20_read(NULL, &temperature) == ESP_OK)
             {
-            case ESP_OK:
                 data.payload_data.status_message.sensor_status_message.temperature = temperature;
-                break;
-            case ESP_FAIL:
-                if (sensor_config->hardware_config.battery_power == false)
-                {
-                    vTaskDelay(10000 / portTICK_PERIOD_MS);
-                    goto ZH_DS18B20_READ;
-                }
-                break;
-            case ESP_ERR_INVALID_CRC:
-                if (sensor_config->hardware_config.battery_power == false)
-                {
-                    vTaskDelay(1000 / portTICK_PERIOD_MS);
-                    goto ZH_DS18B20_READ;
-                }
-                break;
-            default:
-                break;
+                data.payload_data.status_message.sensor_status_message.voltage = 3.3; // For future development.
             }
             break;
-        case HAST_DHT11:
-        case HAST_DHT22:
-        ZH_DHT_READ:
-            switch (zh_dht_read(&sensor_config->dht_handle, &humidity, &temperature))
+        case HAST_DHT:
+            if (zh_dht_read(&humidity, &temperature) == ESP_OK)
             {
-            case ESP_OK:
                 data.payload_data.status_message.sensor_status_message.humidity = humidity;
                 data.payload_data.status_message.sensor_status_message.temperature = temperature;
-                break;
-            case ESP_ERR_INVALID_RESPONSE:
-                if (sensor_config->hardware_config.battery_power == false)
-                {
-                    vTaskDelay(10000 / portTICK_PERIOD_MS);
-                    goto ZH_DHT_READ;
-                }
-                break;
-            case ESP_ERR_TIMEOUT:
-                if (sensor_config->hardware_config.battery_power == false)
-                {
-                    vTaskDelay(10000 / portTICK_PERIOD_MS);
-                    goto ZH_DHT_READ;
-                }
-                break;
-            case ESP_ERR_INVALID_CRC:
-                if (sensor_config->hardware_config.battery_power == false)
-                {
-                    vTaskDelay(3000 / portTICK_PERIOD_MS);
-                    goto ZH_DHT_READ;
-                }
-                break;
-            default:
-                break;
+                data.payload_data.status_message.sensor_status_message.voltage = 3.3; // For future development.
             }
+            break;
+        case HAST_BH1750:
+            if (zh_bh1750_read(&illuminance) == ESP_OK)
+            {
+                data.payload_data.status_message.sensor_status_message.illuminance = illuminance;
+                data.payload_data.status_message.sensor_status_message.voltage = 3.3; // For future development.
+            }
+            break;
+        case HAST_BMP280: // For future development.
+            break;
+        case HAST_BME280: // For future development.
+            break;
+        case HAST_BME680: // For future development.
             break;
         default:
             break;
         }
         zh_send_message(sensor_config->gateway_mac, (uint8_t *)&data, sizeof(zh_espnow_data_t));
-        if (sensor_config->hardware_config.power_pin != ZH_NOT_USED && sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED)
+        if (gpio_get_level(sensor_config->hardware_config.power_pin) == 1)
         {
             gpio_set_level(sensor_config->hardware_config.power_pin, 0);
         }

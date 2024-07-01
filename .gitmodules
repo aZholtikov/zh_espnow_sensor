@@ -19,3 +19,6 @@
 [submodule "components/zh_vector"]
 	path = components/zh_vector
 	url = https://github.com/aZholtikov/zh_vector
+[submodule "components/zh_bh1750"]
+	path = components/zh_bh1750
+	url = https://github.com/aZholtikov/zh_bh1750

@@ -84,7 +84,7 @@ void zh_load_config(sensor_config_t *sensor_config)
 #ifdef CONFIG_MEASUREMENT_FREQUENCY
         sensor_config->hardware_config.measurement_frequency = CONFIG_MEASUREMENT_FREQUENCY;
 #else
-        sensor_config->hardware_config.measurement_frequency = 0;
+        sensor_config->hardware_config.measurement_frequency = 300;
 #endif
 #ifdef CONFIG_SENSOR_PIN_1
         sensor_config->hardware_config.sensor_pin_1 = CONFIG_SENSOR_PIN_1;
@@ -113,9 +113,7 @@ void zh_load_config(sensor_config_t *sensor_config)
     nvs_get_u8(nvs_handle, "sensor_pin_1", &sensor_config->hardware_config.sensor_pin_1);
     nvs_get_u8(nvs_handle, "sensor_pin_2", &sensor_config->hardware_config.sensor_pin_2);
     nvs_get_u8(nvs_handle, "power_pin", &sensor_config->hardware_config.power_pin);
-    uint16_t measurement_frequency = {0};
-    nvs_get_u16(nvs_handle, "frequency", &measurement_frequency); // Just to prevent a compiler warning.
-    sensor_config->hardware_config.measurement_frequency = measurement_frequency;
+    nvs_get_u16(nvs_handle, "frequency", &sensor_config->hardware_config.measurement_frequency);
     nvs_get_u8(nvs_handle, "battery_power", (uint8_t *)&sensor_config->hardware_config.battery_power);
     nvs_close(nvs_handle);
 }
@@ -196,7 +194,6 @@ void zh_sensor_init(sensor_config_t *sensor_config)
         };
         i2c_driver_install(I2C_PORT, i2c_config.mode);
         i2c_param_config(I2C_PORT, &i2c_config);
-        dht_init_config.i2c_port = I2C_PORT;
 #else
         i2c_master_bus_config_t i2c_bus_config = {
             .clk_source = I2C_CLK_SRC_DEFAULT,

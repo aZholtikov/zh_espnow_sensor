@@ -71,7 +71,7 @@ menu "ZH ESP-NOW Sensor Configuration"
 			Measurement frequency (sleep time on battery power).
 
 	config BATTERY_POWERED
-		depends on CONNECTION_TYPE_ONEWIRE
+		depends on CONNECTION_TYPE_ONEWIRE || CONNECTION_TYPE_I2C
 		bool "Battery powered"
 		default false
 		help

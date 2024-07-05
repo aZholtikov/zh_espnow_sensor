@@ -28,41 +28,63 @@ menu "ZH ESP-NOW Sensor Configuration"
 			bool "N"
 		config SENSOR_TYPE_DS18B20
 			bool "DS18B20"
-		config SENSOR_TYPE_DHT11
-			bool "DHT11"
-		config SENSOR_TYPE_DHT22
-			bool "DHT22"
+		config SENSOR_TYPE_DHT
+			bool "DHT"
+		config SENSOR_TYPE_AHT
+			bool "AHT"
+		config SENSOR_TYPE_BH1750
+			bool "BH1750"
 	endchoice
 
+	choice CONNECTION_TYPE
+		depends on SENSOR_TYPE_DS18B20 || SENSOR_TYPE_DHT || SENSOR_TYPE_BH1750 || SENSOR_TYPE_AHT
+		prompt "Connection type" 
+		default CONNECTION_TYPE_ONEWIRE
+		config CONNECTION_TYPE_ONEWIRE
+			depends on SENSOR_TYPE_DS18B20 || SENSOR_TYPE_DHT
+			bool "ONE WIRE"
+		config CONNECTION_TYPE_I2C
+			depends on SENSOR_TYPE_DHT || SENSOR_TYPE_BH1750 || SENSOR_TYPE_AHT
+			bool "I2C"
+	endchoice
+
+	config SENSOR_PIN_1
+		depends on CONNECTION_TYPE_ONEWIRE || CONNECTION_TYPE_I2C
+		int "Sensor GPIO number (main pin for 1-wire sensors, SDA pin for I2C sensors)"
+		range 0 GPIO_RANGE_MAX
+		default 5
+		help
+			Sensor GPIO (main pin for 1-wire sensors, SDA pin for I2C sensors).
+
+	config SENSOR_PIN_2
+		depends on CONNECTION_TYPE_I2C
+		int "Sensor GPIO number (SCL pin for I2C sensors)"
+		range 0 GPIO_RANGE_MAX
+		default 14
+		help
+			Sensor GPIO (SCL pin for I2C sensors).
+
+	config MEASUREMENT_FREQUENCY
+		depends on CONNECTION_TYPE_ONEWIRE || CONNECTION_TYPE_I2C
+		int "Measurement frequency"
+		range 1 65536
+		default 300
+		help
+			Measurement frequency (sleep time on battery power).
+
 	config BATTERY_POWERED
-		depends on SENSOR_TYPE_DS18B20 || SENSOR_TYPE_DHT11 || SENSOR_TYPE_DHT22
+		depends on CONNECTION_TYPE_ONEWIRE || CONNECTION_TYPE_I2C
 		bool "Battery powered"
 		default false
 		help
 			Battery powered.
 
-	config MEASUREMENT_FREQUENCY
-		depends on SENSOR_TYPE_DS18B20 || SENSOR_TYPE_DHT11 || SENSOR_TYPE_DHT22
-		int "Measurement frequency"
-		range 1 65536
-		default 300
-		help
-			Measurement frequency.
-
-	config SENSOR_PIN_1
-		depends on SENSOR_TYPE_DS18B20 || SENSOR_TYPE_DHT11 || SENSOR_TYPE_DHT22
-		int "Sensor GPIO number"
-		range 0 GPIO_RANGE_MAX
-		default 5
-		help
-			Sensor GPIO.
-
 	config POWER_CONTROL_USING
-		depends on SENSOR_TYPE_DS18B20 || SENSOR_TYPE_DHT11 || SENSOR_TYPE_DHT22
+		depends on CONNECTION_TYPE_ONEWIRE
 		bool "Enable using sensor power control"
 		default true
 		help
-			Enable using sensor power control.
+			Enable using sensor power control (for 1-wire sensors only).
 
 	config POWER_CONTROL_PIN
 		depends on POWER_CONTROL_USING

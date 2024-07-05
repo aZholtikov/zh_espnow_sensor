@@ -9,14 +9,18 @@ ESP-NOW based sensor for ESP32 ESP-IDF and ESP8266 RTOS SDK.
 
 ## Features
 
-1. Supported sensors:
-    1. DS18B20
-    2. DHT11/22
-2. Support sensor power management.
-3. Automatically adds sensor configuration to Home Assistan via MQTT discovery as a sensor.
-4. Update firmware from HTTPS server via ESP-NOW.
-5. Direct or mesh work mode.
-6. Support of external or battery powering.
+1. Supported 1-wire sensors:
+    1. [DS18B20](https://github.com/aZholtikov/zh_ds18b20)
+    2. [DHT11/DHT22/AM2302/AM2320](https://github.com/aZholtikov/zh_dht)
+2. Supported I2C sensors:
+    1. [AM2320](https://github.com/aZholtikov/zh_dht)
+    2. [BH1750](https://github.com/aZholtikov/zh_bh1750)
+    3. [AHT20/AHT21](https://github.com/aZholtikov/zh_aht)
+3. Optional support sensor power management (for 1-wire sensors only).
+4. Automatically adds sensor configuration to Home Assistan via MQTT discovery as a sensor.
+5. Update firmware from HTTPS server via ESP-NOW.
+6. Direct or mesh work mode.
+7. External or battery powering.
 
 ## Notes
 
@@ -30,7 +34,7 @@ ESP-NOW based sensor for ESP32 ESP-IDF and ESP8266 RTOS SDK.
 
 MQTT configuration message should filled according to the template "X1,X2,X3,X4,X5,X6". Where:
 
-1. X1 - Sensor type. 1 for DS18B20, 2 for DHT11, 3 for DHT22.
+1. X1 - Sensor type. 1 for DS18B20, 2 for AHT, 8 for DHT, 9 for BH1750.
 2. X2 - Sensor GPIO number 1 (main pin for 1-wire sensors, SDA pin for I2C sensors). 0 - 48 (according to the module used), 255 if not used.
 3. X3 - Sensor GPIO number 2 (SCL pin for I2C sensors). 0 - 48 (according to the module used), 255 if not used.
 4. X4 - Power GPIO number (if using sensor power control). 0 - 48 (according to the module used), 255 if not used.
@@ -69,8 +73,7 @@ make flash
 1. A gateway is required. For details see [zh_gateway](https://github.com/aZholtikov/zh_gateway).
 2. Use the "make ota" command instead of "make" to prepare 2 bin files for OTA update (for ESP8266).
 3. For ESP8266 battery powering mode GPIO16 must be connected to RST.
-4. A battery powering mode sensor power management is highly recommended for greater stability.
-5. Updates and setting changes are only available in external power mode. To temporarily disable battery mode, enable "menuconfig -> ZH ESP-NOW Sensor Configuration -> Enable power mode selection at startup" and set the "Power selection GPIO number". Connecting this GPIO to GND during startup will temporarily disable the battery mode.
+4. Updates and setting changes are only available in external power mode. To temporarily disable battery mode, enable "menuconfig -> ZH ESP-NOW Sensor Configuration -> Enable power mode selection at startup" and set the "Power selection GPIO number". Connecting this GPIO to GND during startup will temporarily disable the battery mode.
 
 Thanks to [Rajeev Tandon](https://github.com/rajtan) for some good advice.
 

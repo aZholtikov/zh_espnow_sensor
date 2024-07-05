@@ -11,6 +11,8 @@
 #include "esp_sleep.h"
 #include "zh_ds18b20.h"
 #include "zh_dht.h"
+#include "zh_bh1750.h"
+#include "zh_aht.h"
 #include "zh_config.h"
 
 #ifdef CONFIG_NETWORK_TYPE_DIRECT
@@ -47,6 +49,11 @@
 #define get_app_description() esp_app_get_description()
 #endif
 
+#define I2C_PORT (I2C_NUM_MAX - 1)
+
+#define DS18B20_POWER_STABILIZATION_PERIOD 500 // Power stabilization period after the sensor is turned on. The value is selected experimentally.
+#define DHT_POWER_STABILIZATION_PERIOD 2000    // Power stabilization period after the sensor is turned on. The value is selected experimentally.
+
 #define ZH_SENSOR_ATTRIBUTES_MESSAGE_FREQUENCY 60 // Frequency of transmission of keep alive messages to the gateway (in seconds).
 
 #define ZH_MESSAGE_TASK_PRIORITY 2 // Prioritize the task of sending messages to the gateway.
@@ -56,7 +63,7 @@ typedef struct // Structure of data exchange between tasks, functions and event 
 {
     struct // Storage structure of sensor hardware configuration data.
     {
-        ha_sensor_type_t sensor_type;   // Sensor types.
+        ha_sensor_type_t sensor_type;   // Sensor type.
         uint8_t sensor_pin_1;           // Sensor GPIO number 1. @note Main pin for 1-wire sensors, SDA pin for I2C sensors.
         uint8_t sensor_pin_2;           // Sensor GPIO number 2. @note SCL pin for I2C sensors.
         uint8_t power_pin;              // Power GPIO number (if used sensor power control).
@@ -66,12 +73,14 @@ typedef struct // Structure of data exchange between tasks, functions and event 
     volatile bool gateway_is_available;      // Gateway availability status flag. @note Used to control the tasks when the gateway connection is established / lost. Used only when external powered.
     uint8_t gateway_mac[6];                  // Gateway MAC address. @note Used only when external powered.
     uint8_t sent_message_quantity;           // System counter for the number of sended messages. @note Used only when powered by battery.
-    zh_dht_handle_t dht_handle;              // Unique DTH11/22 sensor handle.
     TaskHandle_t attributes_message_task;    // Unique task handle for zh_send_sensor_attributes_message_task(). @note Used only when external powered.
     TaskHandle_t status_message_task;        // Unique task handle for zh_send_sensor_status_message_task(). @note Used only when external powered.
     const esp_partition_t *update_partition; // Unique handle for next OTA update partition. @note Used only when external powered.
     esp_ota_handle_t update_handle;          // Unique handle for OTA functions. @note Used only when external powered.
     uint16_t ota_message_part_number;        // System counter for the number of received OTA messages. @note Used only when external powered.
+#ifndef CONFIG_IDF_TARGET_ESP8266
+    i2c_master_bus_handle_t i2c_bus_handle; // Unique I2C bus handle.
+#endif
 } sensor_config_t;
 
 /**

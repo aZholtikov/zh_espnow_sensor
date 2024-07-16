@@ -54,7 +54,8 @@
 #define DS18B20_POWER_STABILIZATION_PERIOD 500 // Power stabilization period after the sensor is turned on. The value is selected experimentally.
 #define DHT_POWER_STABILIZATION_PERIOD 2000    // Power stabilization period after the sensor is turned on. The value is selected experimentally.
 
-#define ZH_SENSOR_ATTRIBUTES_MESSAGE_FREQUENCY 60 // Frequency of transmission of keep alive messages to the gateway (in seconds).
+#define ZH_SENSOR_KEEP_ALIVE_MESSAGE_FREQUENCY 10 // Frequency of sending a keep alive message to the gateway (in seconds).
+#define ZH_SENSOR_ATTRIBUTES_MESSAGE_FREQUENCY 60 // Frequency of transmission a sensor attributes message to the gateway (in seconds).
 
 #define ZH_MESSAGE_TASK_PRIORITY 2 // Prioritize the task of sending messages to the gateway.
 #define ZH_MESSAGE_STACK_SIZE 2048 // The stack size of the task of sending messages to the gateway.
@@ -75,6 +76,7 @@ typedef struct // Structure of data exchange between tasks, functions and event 
     uint8_t sent_message_quantity;           // System counter for the number of sended messages. @note Used only when powered by battery.
     TaskHandle_t attributes_message_task;    // Unique task handle for zh_send_sensor_attributes_message_task(). @note Used only when external powered.
     TaskHandle_t status_message_task;        // Unique task handle for zh_send_sensor_status_message_task(). @note Used only when external powered.
+    TaskHandle_t keep_alive_message_task;    // Unique task handle for zh_send_sensor_keep_alive_message_task(). @note Used only when external powered.
     const esp_partition_t *update_partition; // Unique handle for next OTA update partition. @note Used only when external powered.
     esp_ota_handle_t update_handle;          // Unique handle for OTA functions. @note Used only when external powered.
     uint16_t ota_message_part_number;        // System counter for the number of received OTA messages. @note Used only when external powered.
@@ -156,6 +158,13 @@ uint8_t zh_send_sensor_config_message(const sensor_config_t *sensor_config);
  * @param[in] pvParameter Pointer to the structure of data exchange between tasks, functions and event handlers.
  */
 void zh_send_sensor_status_message_task(void *pvParameter);
+
+/**
+ * @brief Task for prepare the sensor keep alive message and sending it to the gateway.
+ *
+ * @param[in] pvParameter Pointer to the structure of data exchange between tasks, functions and event handlers.
+ */
+void zh_send_sensor_keep_alive_message_task(void *pvParameter);
 
 /**
  * @brief Function for ESP-NOW event processing.

@@ -28,7 +28,11 @@ void app_main(void)
     wifi_init_config_t wifi_init_config = WIFI_INIT_CONFIG_DEFAULT();
     esp_wifi_init(&wifi_init_config);
     esp_wifi_set_mode(WIFI_MODE_STA);
-    esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B);
+#ifdef CONFIG_IDF_TARGET_ESP8266
+    esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N);
+#else
+    esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR);
+#endif
     esp_wifi_start();
 #ifdef CONFIG_NETWORK_TYPE_DIRECT
     zh_espnow_init_config_t espnow_init_config = ZH_ESPNOW_INIT_CONFIG_DEFAULT();
@@ -72,6 +76,7 @@ void zh_load_config(sensor_config_t *sensor_config)
     {
         nvs_set_u8(nvs_handle, "present", 0xFE);
         nvs_close(nvs_handle);
+    SETUP_INITIAL_SETTINGS:
 #ifdef CONFIG_SENSOR_TYPE_DS18B20
         sensor_config->hardware_config.sensor_type = HAST_DS18B20;
 #elif CONFIG_SENSOR_TYPE_DHT
@@ -111,13 +116,18 @@ void zh_load_config(sensor_config_t *sensor_config)
         zh_save_config(sensor_config);
         return;
     }
-    nvs_get_u8(nvs_handle, "sensor_type", (uint8_t *)&sensor_config->hardware_config.sensor_type);
-    nvs_get_u8(nvs_handle, "sensor_pin_1", &sensor_config->hardware_config.sensor_pin_1);
-    nvs_get_u8(nvs_handle, "sensor_pin_2", &sensor_config->hardware_config.sensor_pin_2);
-    nvs_get_u8(nvs_handle, "power_pin", &sensor_config->hardware_config.power_pin);
-    nvs_get_u16(nvs_handle, "frequency", &sensor_config->hardware_config.measurement_frequency);
-    nvs_get_u8(nvs_handle, "battery_power", (uint8_t *)&sensor_config->hardware_config.battery_power);
+    esp_err_t err = ESP_OK;
+    err += nvs_get_u8(nvs_handle, "sensor_type", (uint8_t *)&sensor_config->hardware_config.sensor_type);
+    err += nvs_get_u8(nvs_handle, "sensor_pin_1", &sensor_config->hardware_config.sensor_pin_1);
+    err += nvs_get_u8(nvs_handle, "sensor_pin_2", &sensor_config->hardware_config.sensor_pin_2);
+    err += nvs_get_u8(nvs_handle, "power_pin", &sensor_config->hardware_config.power_pin);
+    err += nvs_get_u16(nvs_handle, "frequency", &sensor_config->hardware_config.measurement_frequency);
+    err += nvs_get_u8(nvs_handle, "battery_power", (uint8_t *)&sensor_config->hardware_config.battery_power);
     nvs_close(nvs_handle);
+    if (err != ESP_OK)
+    {
+        goto SETUP_INITIAL_SETTINGS;
+    }
 }
 
 void zh_save_config(const sensor_config_t *sensor_config)
@@ -361,7 +371,7 @@ uint8_t zh_send_sensor_config_message(const sensor_config_t *sensor_config)
     data.device_type = ZHDT_SENSOR;
     data.payload_type = ZHPT_CONFIG;
     data.payload_data.config_message.sensor_config_message.suggested_display_precision = 1;
-    data.payload_data.config_message.sensor_config_message.expire_after = sensor_config->hardware_config.measurement_frequency * 3;
+    data.payload_data.config_message.sensor_config_message.expire_after = sensor_config->hardware_config.measurement_frequency * 1.5; // + 50% just in case.
     data.payload_data.config_message.sensor_config_message.enabled_by_default = true;
     data.payload_data.config_message.sensor_config_message.force_update = true;
     data.payload_data.config_message.sensor_config_message.qos = 2;
@@ -429,8 +439,6 @@ void zh_send_sensor_status_message_task(void *pvParameter)
     float illuminance = 0.0;
     zh_espnow_data_t data = {0};
     data.device_type = ZHDT_SENSOR;
-    data.payload_type = ZHPT_STATE;
-    data.payload_data.status_message.sensor_status_message.sensor_type = sensor_config->hardware_config.sensor_type;
     for (;;)
     {
         if (sensor_config->hardware_config.power_pin != ZH_NOT_USED && sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED && sensor_config->hardware_config.sensor_pin_2 == ZH_NOT_USED)
@@ -449,6 +457,8 @@ void zh_send_sensor_status_message_task(void *pvParameter)
                 break;
             }
         }
+        uint8_t attempts = 0;
+    READ_SENSOR:;
         esp_err_t err = ESP_OK;
         switch (sensor_config->hardware_config.sensor_type)
         {
@@ -503,13 +513,24 @@ void zh_send_sensor_status_message_task(void *pvParameter)
         }
         if (err == ESP_OK)
         {
+            data.payload_type = ZHPT_STATE;
+            data.payload_data.status_message.sensor_status_message.sensor_type = sensor_config->hardware_config.sensor_type;
             zh_send_message(sensor_config->gateway_mac, (uint8_t *)&data, sizeof(zh_espnow_data_t));
         }
         else
         {
+            if (++attempts < ZH_SENSOR_READ_MAXIMUM_RETRY)
+            {
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
+                goto READ_SENSOR;
+            }
             data.payload_type = ZHPT_ERROR;
-            strcpy(data.payload_data.status_message.error_message.message, "Sensor reading error.");
+            char *message = (char *)heap_caps_malloc(150, MALLOC_CAP_8BIT);
+            memset(message, 0, 150);
+            sprintf(message, "Sensor %s reading error. Error - %s.", zh_get_sensor_type_value_name(sensor_config->hardware_config.sensor_type), esp_err_to_name(err));
+            strcpy(data.payload_data.status_message.error_message.message, message);
             zh_send_message(sensor_config->gateway_mac, (uint8_t *)&data, sizeof(zh_espnow_data_t));
+            heap_caps_free(message);
         }
         if (gpio_get_level(sensor_config->hardware_config.power_pin) == 1)
         {
@@ -581,9 +602,19 @@ void zh_espnow_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                         if (sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED && sensor_config->hardware_config.sensor_type != HAST_NONE)
                         {
                             zh_send_sensor_config_message(sensor_config);
-                            xTaskCreatePinnedToCore(&zh_send_sensor_status_message_task, "NULL", ZH_MESSAGE_STACK_SIZE, sensor_config, ZH_MESSAGE_TASK_PRIORITY, (TaskHandle_t *)&sensor_config->status_message_task, tskNO_AFFINITY);
-                            xTaskCreatePinnedToCore(&zh_send_sensor_attributes_message_task, "NULL", ZH_MESSAGE_STACK_SIZE, sensor_config, ZH_MESSAGE_TASK_PRIORITY, (TaskHandle_t *)&sensor_config->attributes_message_task, tskNO_AFFINITY);
-                            xTaskCreatePinnedToCore(&zh_send_sensor_keep_alive_message_task, "NULL", ZH_MESSAGE_STACK_SIZE, sensor_config, ZH_MESSAGE_TASK_PRIORITY, (TaskHandle_t *)&sensor_config->keep_alive_message_task, tskNO_AFFINITY);
+                            if (sensor_config->is_first_connection == false)
+                            {
+                                xTaskCreatePinnedToCore(&zh_send_sensor_status_message_task, "NULL", ZH_MESSAGE_STACK_SIZE, sensor_config, ZH_MESSAGE_TASK_PRIORITY, (TaskHandle_t *)&sensor_config->status_message_task, tskNO_AFFINITY);
+                                xTaskCreatePinnedToCore(&zh_send_sensor_attributes_message_task, "NULL", ZH_MESSAGE_STACK_SIZE, sensor_config, ZH_MESSAGE_TASK_PRIORITY, (TaskHandle_t *)&sensor_config->attributes_message_task, tskNO_AFFINITY);
+                                xTaskCreatePinnedToCore(&zh_send_sensor_keep_alive_message_task, "NULL", ZH_MESSAGE_STACK_SIZE, sensor_config, ZH_MESSAGE_TASK_PRIORITY, (TaskHandle_t *)&sensor_config->keep_alive_message_task, tskNO_AFFINITY);
+                                sensor_config->is_first_connection = true;
+                            }
+                            else
+                            {
+                                vTaskResume(sensor_config->status_message_task);
+                                vTaskResume(sensor_config->attributes_message_task);
+                                vTaskResume(sensor_config->keep_alive_message_task);
+                            }
                         }
                     }
                 }
@@ -594,9 +625,9 @@ void zh_espnow_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                         sensor_config->gateway_is_available = false;
                         if (sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED && sensor_config->hardware_config.sensor_type != HAST_NONE)
                         {
-                            vTaskDelete(sensor_config->status_message_task);
-                            vTaskDelete(sensor_config->attributes_message_task);
-                            vTaskDelete(sensor_config->keep_alive_message_task);
+                            vTaskSuspend(sensor_config->status_message_task);
+                            vTaskSuspend(sensor_config->attributes_message_task);
+                            vTaskSuspend(sensor_config->keep_alive_message_task);
                         }
                     }
                 }
@@ -609,9 +640,33 @@ void zh_espnow_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                 sensor_config->hardware_config.measurement_frequency = data->payload_data.config_message.sensor_hardware_config_message.measurement_frequency;
                 sensor_config->hardware_config.battery_power = data->payload_data.config_message.sensor_hardware_config_message.battery_power;
                 zh_save_config(sensor_config);
+                sensor_config->gateway_is_available = false;
+                if (sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED && sensor_config->hardware_config.sensor_type != HAST_NONE)
+                {
+                    vTaskDelete(sensor_config->status_message_task);
+                    vTaskDelete(sensor_config->attributes_message_task);
+                    vTaskDelete(sensor_config->keep_alive_message_task);
+                }
+                data->device_type = ZHDT_SENSOR;
+                data->payload_type = ZHPT_KEEP_ALIVE;
+                data->payload_data.keep_alive_message.online_status = ZH_OFFLINE;
+                data->payload_data.keep_alive_message.message_frequency = ZH_SENSOR_KEEP_ALIVE_MESSAGE_FREQUENCY;
+                zh_send_message(sensor_config->gateway_mac, (uint8_t *)data, sizeof(zh_espnow_data_t));
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
                 esp_restart();
                 break;
             case ZHPT_UPDATE:;
+                if (sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED && sensor_config->hardware_config.sensor_type != HAST_NONE)
+                {
+                    vTaskSuspend(sensor_config->status_message_task);
+                    vTaskSuspend(sensor_config->attributes_message_task);
+                    vTaskSuspend(sensor_config->keep_alive_message_task);
+                }
+                data->device_type = ZHDT_SENSOR;
+                data->payload_type = ZHPT_KEEP_ALIVE;
+                data->payload_data.keep_alive_message.online_status = ZH_OFFLINE;
+                data->payload_data.keep_alive_message.message_frequency = ZH_SENSOR_KEEP_ALIVE_MESSAGE_FREQUENCY;
+                zh_send_message(sensor_config->gateway_mac, (uint8_t *)data, sizeof(zh_espnow_data_t));
                 const esp_app_desc_t *app_info = get_app_description();
                 sensor_config->update_partition = esp_ota_get_next_update_partition(NULL);
                 strcpy(data->payload_data.ota_message.espnow_ota_data.app_version, app_info->version);
@@ -624,7 +679,6 @@ void zh_espnow_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #else
                 strcpy(data->payload_data.ota_message.espnow_ota_data.app_name, app_info->project_name);
 #endif
-                data->device_type = ZHDT_SENSOR;
                 data->payload_type = ZHPT_UPDATE;
                 zh_send_message(sensor_config->gateway_mac, (uint8_t *)data, sizeof(zh_espnow_data_t));
                 break;
@@ -651,6 +705,12 @@ void zh_espnow_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                 break;
             case ZHPT_UPDATE_ERROR:
                 esp_ota_end(sensor_config->update_handle);
+                if (sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED && sensor_config->hardware_config.sensor_type != HAST_NONE)
+                {
+                    vTaskResume(sensor_config->status_message_task);
+                    vTaskResume(sensor_config->attributes_message_task);
+                    vTaskResume(sensor_config->keep_alive_message_task);
+                }
                 break;
             case ZHPT_UPDATE_END:
                 if (esp_ota_end(sensor_config->update_handle) != ESP_OK)
@@ -658,6 +718,12 @@ void zh_espnow_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                     data->device_type = ZHDT_SENSOR;
                     data->payload_type = ZHPT_UPDATE_FAIL;
                     zh_send_message(sensor_config->gateway_mac, (uint8_t *)data, sizeof(zh_espnow_data_t));
+                    if (sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED && sensor_config->hardware_config.sensor_type != HAST_NONE)
+                    {
+                        vTaskResume(sensor_config->status_message_task);
+                        vTaskResume(sensor_config->attributes_message_task);
+                        vTaskResume(sensor_config->keep_alive_message_task);
+                    }
                     break;
                 }
                 esp_ota_set_boot_partition(sensor_config->update_partition);
@@ -668,6 +734,18 @@ void zh_espnow_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                 esp_restart();
                 break;
             case ZHPT_RESTART:
+                if (sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED && sensor_config->hardware_config.sensor_type != HAST_NONE)
+                {
+                    vTaskDelete(sensor_config->status_message_task);
+                    vTaskDelete(sensor_config->attributes_message_task);
+                    vTaskDelete(sensor_config->keep_alive_message_task);
+                }
+                data->device_type = ZHDT_SENSOR;
+                data->payload_type = ZHPT_KEEP_ALIVE;
+                data->payload_data.keep_alive_message.online_status = ZH_OFFLINE;
+                data->payload_data.keep_alive_message.message_frequency = ZH_SENSOR_KEEP_ALIVE_MESSAGE_FREQUENCY;
+                zh_send_message(sensor_config->gateway_mac, (uint8_t *)data, sizeof(zh_espnow_data_t));
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
                 esp_restart();
                 break;
             default:
@@ -690,9 +768,9 @@ void zh_espnow_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                 sensor_config->gateway_is_available = false;
                 if (sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED && sensor_config->hardware_config.sensor_type != HAST_NONE)
                 {
-                    vTaskDelete(sensor_config->status_message_task);
-                    vTaskDelete(sensor_config->attributes_message_task);
-                    vTaskDelete(sensor_config->keep_alive_message_task);
+                    vTaskSuspend(sensor_config->status_message_task);
+                    vTaskSuspend(sensor_config->attributes_message_task);
+                    vTaskSuspend(sensor_config->keep_alive_message_task);
                 }
             }
         }
@@ -714,9 +792,9 @@ void zh_espnow_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                 sensor_config->gateway_is_available = false;
                 if (sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED && sensor_config->hardware_config.sensor_type != HAST_NONE)
                 {
-                    vTaskDelete(sensor_config->status_message_task);
-                    vTaskDelete(sensor_config->attributes_message_task);
-                    vTaskDelete(sensor_config->keep_alive_message_task);
+                    vTaskSuspend(sensor_config->status_message_task);
+                    vTaskSuspend(sensor_config->attributes_message_task);
+                    vTaskSuspend(sensor_config->keep_alive_message_task);
                 }
             }
         }

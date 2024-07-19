@@ -51,11 +51,12 @@
 
 #define I2C_PORT (I2C_NUM_MAX - 1)
 
-#define DS18B20_POWER_STABILIZATION_PERIOD 500 // Power stabilization period after the sensor is turned on. The value is selected experimentally.
-#define DHT_POWER_STABILIZATION_PERIOD 2000    // Power stabilization period after the sensor is turned on. The value is selected experimentally.
+#define DS18B20_POWER_STABILIZATION_PERIOD 500 // Power stabilization period after the sensor is turned on (in seconds). The value is selected experimentally.
+#define DHT_POWER_STABILIZATION_PERIOD 2000    // Power stabilization period after the sensor is turned on (in seconds). The value is selected experimentally.
 
 #define ZH_SENSOR_KEEP_ALIVE_MESSAGE_FREQUENCY 10 // Frequency of sending a keep alive message to the gateway (in seconds).
 #define ZH_SENSOR_ATTRIBUTES_MESSAGE_FREQUENCY 60 // Frequency of transmission a sensor attributes message to the gateway (in seconds).
+#define ZH_SENSOR_READ_MAXIMUM_RETRY 5            // Maximum number of read sensor attempts.
 
 #define ZH_MESSAGE_TASK_PRIORITY 2 // Prioritize the task of sending messages to the gateway.
 #define ZH_MESSAGE_STACK_SIZE 2048 // The stack size of the task of sending messages to the gateway.
@@ -72,6 +73,7 @@ typedef struct // Structure of data exchange between tasks, functions and event 
         bool battery_power;             // Battery powered. @note Battery powering (true) / external powering (false).
     } hardware_config;
     volatile bool gateway_is_available;      // Gateway availability status flag. @note Used to control the tasks when the gateway connection is established / lost. Used only when external powered.
+    volatile bool is_first_connection;       // First connection status flag. @note Used to control the tasks when the gateway connection is established / lost.
     uint8_t gateway_mac[6];                  // Gateway MAC address. @note Used only when external powered.
     uint8_t sent_message_quantity;           // System counter for the number of sended messages. @note Used only when powered by battery.
     TaskHandle_t attributes_message_task;    // Unique task handle for zh_send_sensor_attributes_message_task(). @note Used only when external powered.

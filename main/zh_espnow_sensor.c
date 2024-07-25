@@ -640,7 +640,6 @@ void zh_espnow_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                 sensor_config->hardware_config.measurement_frequency = data->payload_data.config_message.sensor_hardware_config_message.measurement_frequency;
                 sensor_config->hardware_config.battery_power = data->payload_data.config_message.sensor_hardware_config_message.battery_power;
                 zh_save_config(sensor_config);
-                sensor_config->gateway_is_available = false;
                 if (sensor_config->hardware_config.sensor_pin_1 != ZH_NOT_USED && sensor_config->hardware_config.sensor_type != HAST_NONE)
                 {
                     vTaskDelete(sensor_config->status_message_task);
